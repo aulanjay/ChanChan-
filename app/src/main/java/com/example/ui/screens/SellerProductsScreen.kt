@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.ProductItem
+import com.example.data.model.UserRole
 import com.example.data.repository.ChanChanRepository
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.UiState
@@ -30,6 +31,7 @@ fun SellerProductsScreen(
     onEditProductClick: (ProductItem) -> Unit,
     onDeleteProductClick: (String) -> Unit,
     onToggleAvailability: (String) -> Unit,
+    onRestockClick: (ProductItem) -> Unit,
     onFilterChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -52,7 +54,7 @@ fun SellerProductsScreen(
                 containerColor = ChanOrangePrimary,
                 contentColor = Color.White,
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Tambah Produk Baru", fontWeight = FontWeight.Bold) },
+                text = { Text("Tambah Menu Baru", fontWeight = FontWeight.Bold) },
                 modifier = Modifier
                     .navigationBarsPadding()
                     .offset(y = (-80).dp)
@@ -67,6 +69,39 @@ fun SellerProductsScreen(
             contentPadding = PaddingValues(16.dp, bottom = 140.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // User Role Access Banner
+            item {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (state.isOwner) ChanCoffeeBrown else Color(0xFF1976D2),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (state.isOwner) "👑" else "☕",
+                            fontSize = 20.sp
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (state.isOwner) "Akses Owner: Kelola Semua Fitur" else "Akses Karyawan: Kelola Stok & Menu",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                            Text(
+                                text = if (state.isOwner) "Dapat melihat omset, laporan, data pelanggan, dan katalog" else "Dapat menambah/mengubah menu, atur stok, dan proses pesanan",
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            }
+
             // Store Inventory Overview Cards
             item {
                 Row(
@@ -121,9 +156,11 @@ fun SellerProductsScreen(
             items(filteredProducts) { product ->
                 SellerProductItemRow(
                     product = product,
+                    isOwner = state.isOwner,
                     onEdit = { onEditProductClick(product) },
                     onDelete = { onDeleteProductClick(product.id) },
-                    onToggleAvailability = { onToggleAvailability(product.id) }
+                    onToggleAvailability = { onToggleAvailability(product.id) },
+                    onRestock = { onRestockClick(product) }
                 )
             }
         }
@@ -166,10 +203,14 @@ fun InventoryMetricCard(
 @Composable
 fun SellerProductItemRow(
     product: ProductItem,
+    isOwner: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onToggleAvailability: () -> Unit
+    onToggleAvailability: () -> Unit,
+    onRestock: () -> Unit
 ) {
+    val isLowStock = product.stockQuantity < 15
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -209,11 +250,27 @@ fun SellerProductItemRow(
                             )
                         }
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Stok: ${product.stockQuantity}",
-                            fontSize = 11.sp,
-                            color = TextSecondary
-                        )
+
+                        if (isLowStock) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFFFFF3E0)
+                            ) {
+                                Text(
+                                    text = "⚠️ Sisa ${product.stockQuantity} porsi",
+                                    color = Color(0xFFE65100),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = "Stok: ${product.stockQuantity}",
+                                fontSize = 11.sp,
+                                color = TextSecondary
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(2.dp))
@@ -232,12 +289,14 @@ fun SellerProductItemRow(
                             fontSize = 13.sp,
                             color = ChanOrangePrimary
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "(Modal: ${ChanChanRepository.formatRupiah(product.costPrice)})",
-                            fontSize = 11.sp,
-                            color = TextSecondary
-                        )
+                        if (isOwner) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "(Modal: ${ChanChanRepository.formatRupiah(product.costPrice)})",
+                                fontSize = 11.sp,
+                                color = TextSecondary
+                            )
+                        }
                     }
                 }
 
@@ -262,47 +321,61 @@ fun SellerProductItemRow(
             }
 
             Spacer(modifier = Modifier.height(10.dp))
-            Divider(color = ChanBorder)
+            HorizontalDivider(color = ChanBorder)
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Action Buttons (Edit & Delete)
+            // Action Buttons (Restock, Edit & Delete)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedButton(
+                    onClick = onRestock,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ChanOrangePrimary),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier.height(30.dp)
+                ) {
+                    Icon(Icons.Default.AddBusiness, contentDescription = null, modifier = Modifier.size(13.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(text = "+ Restock", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                OutlinedButton(
                     onClick = onDelete,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F)),
                     shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                     modifier = Modifier.height(30.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.DeleteOutline,
                         contentDescription = "Hapus",
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(13.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(2.dp))
                     Text(text = "Hapus", fontSize = 11.sp)
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
 
                 Button(
                     onClick = onEdit,
                     colors = ButtonDefaults.buttonColors(containerColor = ChanCoffeeBrown),
                     shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                     modifier = Modifier.height(30.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "Edit",
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(13.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "Edit Produk", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(text = "Edit", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

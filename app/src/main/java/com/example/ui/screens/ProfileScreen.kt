@@ -20,17 +20,21 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.AppUser
 import com.example.data.model.UserProfile
+import com.example.data.model.UserRole
 import com.example.data.model.Voucher
 import com.example.ui.theme.*
 
 @Composable
 fun ProfileScreen(
     user: UserProfile,
+    currentUser: AppUser? = null,
     vouchers: List<Voucher>,
     onOpenAddAddress: () -> Unit,
     onOpenVouchers: () -> Unit,
     onSwitchToMerchant: () -> Unit,
+    onOpenLogin: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var hasClaimedStreak by remember { mutableStateOf(false) }
@@ -42,6 +46,90 @@ fun ProfileScreen(
         contentPadding = PaddingValues(16.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Account Status & Role Switcher Card
+        item {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = ChanWarmSurface,
+                shadowElevation = 2.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(when (currentUser?.role) {
+                                    UserRole.OWNER -> Color(0xFF3E2723)
+                                    UserRole.EMPLOYEE -> Color(0xFF1976D2)
+                                    else -> ChanOrangePrimary
+                                }),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = currentUser?.avatarEmoji ?: "👤", fontSize = 22.sp)
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = currentUser?.name ?: user.name,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = TextPrimary
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = when (currentUser?.role) {
+                                        UserRole.OWNER -> Color(0xFFEFEBE9)
+                                        UserRole.EMPLOYEE -> Color(0xFFE3F2FD)
+                                        else -> ChanOrangeContainer
+                                    }
+                                ) {
+                                    Text(
+                                        text = currentUser?.role?.displayName ?: "Pelanggan",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(currentUser?.role?.badgeColorHex ?: 0xFFEE4D2D),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = currentUser?.email ?: user.email,
+                                fontSize = 11.sp,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = onOpenLogin,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = ChanOrangePrimary
+                        ),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.height(34.dp).testTag("profile_switch_role_btn")
+                    ) {
+                        Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "Ganti Akun", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
         // 1. Digital Member Card
         item {
             Surface(

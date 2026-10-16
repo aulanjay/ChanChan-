@@ -5,13 +5,18 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.components.BuyerBottomNav
@@ -19,7 +24,7 @@ import com.example.ui.components.ChanChanTopBar
 import com.example.ui.components.SellerBottomNav
 import com.example.ui.dialogs.*
 import com.example.ui.screens.*
-import com.example.ui.theme.ChanChanTheme
+import com.example.ui.theme.*
 import com.example.ui.viewmodel.*
 
 class MainActivity : ComponentActivity() {
@@ -58,9 +63,11 @@ fun ChanChanApp(
                 appMode = state.appMode,
                 selectedOutlet = state.selectedOutlet,
                 cartItemCount = state.cart.sumOf { it.quantity },
+                currentUser = state.currentUser,
                 onOutletClick = { viewModel.showOutletPicker(true) },
                 onToggleMode = { viewModel.toggleAppMode() },
-                onCartClick = { viewModel.showCheckout(true) }
+                onCartClick = { viewModel.showCheckout(true) },
+                onAccountClick = { viewModel.showLoginDialog(true) }
             )
         },
         bottomBar = {
@@ -72,6 +79,7 @@ fun ChanChanApp(
             } else {
                 SellerBottomNav(
                     currentTab = state.sellerTab,
+                    isOwner = state.isOwner,
                     onTabSelected = { viewModel.setSellerTab(it) }
                 )
             }
@@ -114,15 +122,17 @@ fun ChanChanApp(
                     BuyerTab.PROFILE -> {
                         ProfileScreen(
                             user = state.userProfile,
+                            currentUser = state.currentUser,
                             vouchers = state.vouchers,
                             onOpenAddAddress = { viewModel.showAddressDialog(true) },
                             onOpenVouchers = { viewModel.showVoucherDialog(true) },
-                            onSwitchToMerchant = { viewModel.toggleAppMode() }
+                            onSwitchToMerchant = { viewModel.toggleAppMode() },
+                            onOpenLogin = { viewModel.showLoginDialog(true) }
                         )
                     }
                 }
             } else {
-                // Merchant Hub / Seller Mode
+                // Merchant Hub / Seller Mode (Owner & Employee)
                 when (state.sellerTab) {
                     SellerTab.PRODUCTS -> {
                         SellerProductsScreen(
@@ -131,6 +141,7 @@ fun ChanChanApp(
                             onEditProductClick = { viewModel.openEditProduct(it) },
                             onDeleteProductClick = { viewModel.deleteProduct(it) },
                             onToggleAvailability = { viewModel.toggleProductAvailability(it) },
+                            onRestockClick = { viewModel.openRestockDialog(it) },
                             onFilterChange = { viewModel.setMerchantStockFilter(it) }
                         )
                     }
@@ -142,11 +153,103 @@ fun ChanChanApp(
                         )
                     }
                     SellerTab.REPORTING -> {
-                        SellerReportingScreen(
-                            reportingSummary = viewModel.getReportingStats(),
-                            selectedPeriod = state.reportingPeriod,
-                            onPeriodSelected = { viewModel.setReportingPeriod(it) }
-                        )
+                        if (state.isOwner) {
+                            SellerReportingScreen(
+                                reportingSummary = viewModel.getReportingStats(),
+                                selectedPeriod = state.reportingPeriod,
+                                products = state.products,
+                                onPeriodSelected = { viewModel.setReportingPeriod(it) },
+                                onRestockClick = { viewModel.openRestockDialog(it) },
+                                onNavigateToCustomers = { viewModel.setSellerTab(SellerTab.CUSTOMERS) }
+                            )
+                        } else {
+                            // Restriction screen for employee
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = ChanWarmSurface,
+                                    shadowElevation = 3.dp,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(text = "🔒", fontSize = 42.sp)
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Text(
+                                            text = "Akses Khusus Owner",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 18.sp,
+                                            color = TextPrimary
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "Laporan omset penjualan, estimasi laba, dan grafik analitik hanya dapat diakses oleh Akun Pemilik (Owner).",
+                                            fontSize = 12.sp,
+                                            color = TextSecondary,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Button(
+                                            onClick = { viewModel.showLoginDialog(true) },
+                                            colors = ButtonDefaults.buttonColors(containerColor = ChanCoffeeBrown)
+                                        ) {
+                                            Text("Login sebagai Owner", fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    SellerTab.CUSTOMERS -> {
+                        if (state.isOwner) {
+                            OwnerCustomerInfoScreen(
+                                customers = state.customersList,
+                                searchQuery = state.customerSearchQuery,
+                                onSearchChange = { viewModel.setCustomerSearchQuery(it) }
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = ChanWarmSurface,
+                                    shadowElevation = 3.dp,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(text = "🔒", fontSize = 42.sp)
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Text(
+                                            text = "Akses Khusus Owner",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 18.sp,
+                                            color = TextPrimary
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "Data privasi & riwayat loyalitas pelanggan hanya dapat diakses oleh Akun Pemilik (Owner).",
+                                            fontSize = 12.sp,
+                                            color = TextSecondary,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -220,6 +323,27 @@ fun ChanChanApp(
             selectedOutlet = state.selectedOutlet,
             onSelectOutlet = { viewModel.selectOutlet(it) },
             onDismiss = { viewModel.showOutletPicker(false) }
+        )
+    }
+
+    // 8. Login & Role Switcher Dialog (Customer, Employee, Owner)
+    if (state.isLoginDialogVisible) {
+        LoginDialog(
+            currentUser = state.currentUser,
+            isFirebaseConnected = state.isFirebaseConnected,
+            onDismiss = { viewModel.showLoginDialog(false) },
+            onLogin = { role, email, name -> viewModel.login(role, email, name) },
+            onGoogleSignInSuccess = { name, email, photo -> viewModel.signInWithGoogleSuccess(name, email, photo) },
+            onLogout = { viewModel.logout() }
+        )
+    }
+
+    // 9. Restock Product Dialog (Owner & Employee)
+    if (state.isRestockDialogVisible && state.productToRestock != null) {
+        RestockDialog(
+            product = state.productToRestock!!,
+            onDismiss = { viewModel.closeRestockDialog() },
+            onConfirmRestock = { qty -> viewModel.restockProduct(state.productToRestock!!.id, qty) }
         )
     }
 }

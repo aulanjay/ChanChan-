@@ -1310,3 +1310,116 @@ fun OutletPickerDialog(
         }
     }
 }
+
+@Composable
+fun RestockDialog(
+    product: ProductItem,
+    onDismiss: () -> Unit,
+    onConfirmRestock: (Int) -> Unit
+) {
+    var addQtyText by remember { mutableStateOf("25") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = ChanWarmSurface,
+            shadowElevation = 6.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(22.dp)) {
+                Text(
+                    text = "Restock Porsi Menu 📦",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = TextPrimary
+                )
+                Text(
+                    text = "Tambah stok untuk ${product.name}",
+                    fontSize = 12.sp,
+                    color = TextSecondary
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = ChanSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = product.emoji, fontSize = 28.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Stok Saat Ini: ${product.stockQuantity} porsi",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = if (product.isAvailable) "Status: Tersedia" else "Status: Habis",
+                                fontSize = 11.sp,
+                                color = if (product.isAvailable) ChanGreenSuccess else Color(0xFFD32F2F)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(text = "Jumlah Tambahan Porsi:", fontSize = 11.sp, color = TextSecondary)
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("10", "25", "50", "100").forEach { q ->
+                        FilterChip(
+                            selected = addQtyText == q,
+                            onClick = { addQtyText = q },
+                            label = { Text("+$q", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = ChanOrangePrimary,
+                                selectedLabelColor = Color.White
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = addQtyText,
+                    onValueChange = { addQtyText = it },
+                    label = { Text("Input manual jumlah porsi", fontSize = 12.sp) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Batal", color = TextSecondary)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            val qty = addQtyText.toIntOrNull() ?: 0
+                            if (qty > 0) onConfirmRestock(qty)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ChanOrangePrimary),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Simpan Stok", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+

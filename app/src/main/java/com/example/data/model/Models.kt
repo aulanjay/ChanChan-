@@ -182,3 +182,33 @@ data class UserProfile(
     ),
     val favoriteProductIds: Set<String> = emptySet()
 )
+
+enum class UserRole(val displayName: String, val badgeColorHex: Long) {
+    CUSTOMER("Pelanggan", 0xFFEE4D2D),
+    EMPLOYEE("Karyawan / Staff", 0xFF1976D2),
+    OWNER("Owner / Pemilik", 0xFF3E2723)
+}
+
+data class AppUser(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val email: String,
+    val phone: String,
+    val role: UserRole,
+    val avatarEmoji: String = "👤",
+    val title: String = ""
+)
+
+data class CustomerInfo(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val email: String,
+    val phone: String,
+    val tier: String = "Jiwa Friend",
+    val totalOrders: Int = 1,
+    val totalSpent: Long = 0L,
+    val pointsBalance: Long = 0L,
+    val joinedDate: String = "12 Jan 2026",
+    val lastOrderDate: String = "Hari ini"
+)
+

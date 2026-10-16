@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "products": {
+      "collection": "products",
+      "description": "Food & beverage catalog menu items, prices, and stock inventory",
+      "fields": {
+        "id": { "type": "string", "description": "Unique product ID" },
+        "name": { "type": "string", "description": "Product display name" },
+        "category": { "type": "string", "description": "Category name: TOAST, KOPI, NON_COFFEE, MEALS, BAKERY, PROMO, ALL" },
+        "price": { "type": "number", "description": "Retail price in IDR" },
+        "costPrice": { "type": "number", "description": "Cost/HPP in IDR" },
+        "description": { "type": "string", "description": "Product description" },
+        "emoji": { "type": "string", "description": "Emoji icon" },
+        "isAvailable": { "type": "boolean", "description": "Availability toggle" },
+        "stockQuantity": { "type": "number", "description": "Remaining stock count" },
+        "rating": { "type": "number", "description": "Customer rating" },
+        "prepTimeMinutes": { "type": "number", "description": "Prep time in minutes" },
+        "updatedAt": { "type": "timestamp", "description": "Last updated timestamp" }
+      }
+    },
+    "orders": {
+      "collection": "orders",
+      "description": "Customer food orders and status tracking",
+      "fields": {
+        "orderId": { "type": "string", "description": "Unique order ID" },
+        "orderNumber": { "type": "string", "description": "Human-readable order number e.g. CC-123456" },
+        "userId": { "type": "string", "description": "Authenticated customer UID" },
+        "customerName": { "type": "string", "description": "Customer name" },
+        "orderType": { "type": "string", "description": "PICKUP or DELIVERY" },
+        "status": { "type": "string", "description": "PENDING, PREPARING, READY, COMPLETED, CANCELLED" },
+        "totalPaid": { "type": "number", "description": "Total payment in IDR" },
+        "paymentMethod": { "type": "string", "description": "QRIS, GOPAY, OVO, SHOPEEPAY, DANA, VA_BCA, VA_MANDIRI, CASH" },
+        "pickupPin": { "type": "string", "description": "3-digit pickup PIN" },
+        "outletId": { "type": "string", "description": "Outlet ID" },
+        "outletName": { "type": "string", "description": "Outlet name" },
+        "createdAt": { "type": "timestamp", "description": "Creation timestamp" }
+      }
+    },
+    "users": {
+      "collection": "users",
+      "description": "User profile, member tier, and loyalty points",
+      "fields": {
+        "userId": { "type": "string", "description": "Firebase Auth UID" },
+        "name": { "type": "string", "description": "User full name" },
+        "email": { "type": "string", "description": "User email address" },
+        "phone": { "type": "string", "description": "Phone number" },
+        "role": { "type": "string", "description": "CUSTOMER, EMPLOYEE, OWNER" },
+        "tier": { "type": "string", "description": "Jiwa Gold, Silver, Friend" },
+        "points": { "type": "number", "description": "ChanPoints balance" },
+        "updatedAt": { "type": "timestamp", "description": "Profile update timestamp" }
+      }
+    }
+  }
+}

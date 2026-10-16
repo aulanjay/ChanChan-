@@ -1,6 +1,7 @@
 package com.example.ui.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.model.*
 import com.example.data.repository.ChanChanRepository
@@ -17,7 +18,7 @@ enum class BuyerTab {
 }
 
 enum class SellerTab {
-    PRODUCTS, ORDERS, REPORTING
+    PRODUCTS, ORDERS, REPORTING, CUSTOMERS
 }
 
 data class UiState(
@@ -47,12 +48,29 @@ data class UiState(
     val isSuccessDialogVisible: Boolean = false,
     val reportingPeriod: String = "Hari Ini",
     val merchantStockFilter: String = "Semua",
-    val outlets: List<Outlet> = emptyList()
-)
+    val outlets: List<Outlet> = emptyList(),
+    val currentUser: AppUser? = null,
+    val isLoginDialogVisible: Boolean = false,
+    val customersList: List<CustomerInfo> = emptyList(),
+    val isRestockDialogVisible: Boolean = false,
+    val productToRestock: ProductItem? = null,
+    val customerSearchQuery: String = "",
+    val isAddVoucherDialogVisible: Boolean = false,
+    val isFirebaseConnected: Boolean = true
+) {
+    val isOwner: Boolean get() = currentUser?.role == UserRole.OWNER
+    val isEmployee: Boolean get() = currentUser?.role == UserRole.EMPLOYEE
+    val isCustomer: Boolean get() = currentUser?.role == UserRole.CUSTOMER || currentUser == null
+    val canViewFinancialReports: Boolean get() = isOwner
+    val canViewCustomerDatabase: Boolean get() = isOwner
+    val canCrudMenuAndStock: Boolean get() = isOwner || isEmployee
+}
 
 class ChanChanViewModel(
-    private val repository: ChanChanRepository = ChanChanRepository()
-) : ViewModel() {
+    application: Application
+) : AndroidViewModel(application) {
+
+    private val repository: ChanChanRepository = ChanChanRepository.getInstance(application)
 
     private val _uiState = MutableStateFlow(
         UiState(
@@ -61,7 +79,10 @@ class ChanChanViewModel(
             products = repository.products.value,
             orders = repository.orders.value,
             vouchers = repository.vouchers.value,
-            userProfile = repository.userProfile.value
+            userProfile = repository.userProfile.value,
+            currentUser = repository.currentUser.value,
+            customersList = repository.customersList.value,
+            isFirebaseConnected = repository.isFirebaseConnected.value
         )
     )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -91,6 +112,73 @@ class ChanChanViewModel(
             repository.outlets.collect { outletList ->
                 _uiState.update { it.copy(outlets = outletList) }
             }
+        }
+        viewModelScope.launch {
+            repository.currentUser.collect { user ->
+                _uiState.update {
+                    val appMode = if (user?.role == UserRole.OWNER || user?.role == UserRole.EMPLOYEE) {
+                        AppMode.SELLER
+                    } else {
+                        AppMode.BUYER
+                    }
+                    it.copy(currentUser = user, appMode = appMode)
+                }
+            }
+        }
+        viewModelScope.launch {
+            repository.customersList.collect { list ->
+                _uiState.update { it.copy(customersList = list) }
+            }
+        }
+        viewModelScope.launch {
+            repository.vouchers.collect { voucherList ->
+                _uiState.update { it.copy(vouchers = voucherList) }
+            }
+        }
+        viewModelScope.launch {
+            repository.isFirebaseConnected.collect { connected ->
+                _uiState.update { it.copy(isFirebaseConnected = connected) }
+            }
+        }
+    }
+
+    // --- Authentication & Role Switching ---
+    fun showLoginDialog(show: Boolean) {
+        _uiState.update { it.copy(isLoginDialogVisible = show) }
+    }
+
+    fun login(role: UserRole, email: String = "", name: String = "") {
+        val user = repository.login(role, email, name)
+        _uiState.update {
+            it.copy(
+                currentUser = user,
+                isLoginDialogVisible = false,
+                appMode = if (role == UserRole.CUSTOMER) AppMode.BUYER else AppMode.SELLER,
+                buyerTab = BuyerTab.HOME,
+                sellerTab = SellerTab.PRODUCTS
+            )
+        }
+    }
+
+    fun signInWithGoogleSuccess(name: String, email: String, photoUrl: String = "") {
+        repository.setFirebaseUser(name, email, photoUrl)
+        _uiState.update {
+            it.copy(
+                isLoginDialogVisible = false,
+                appMode = AppMode.BUYER,
+                buyerTab = BuyerTab.HOME
+            )
+        }
+    }
+
+    fun logout() {
+        repository.logout()
+        _uiState.update {
+            it.copy(
+                currentUser = null,
+                appMode = AppMode.BUYER,
+                buyerTab = BuyerTab.HOME
+            )
         }
     }
 
@@ -216,7 +304,7 @@ class ChanChanViewModel(
         _uiState.update { it.copy(buyerTab = BuyerTab.CATALOG, isCheckoutVisible = true) }
     }
 
-    // --- Seller / Product Management Actions ---
+    // --- Product & Stock Management Actions (Owner & Employee) ---
     fun openAddProduct() {
         _uiState.update { it.copy(isAddEditProductVisible = true, productToEdit = null) }
     }
@@ -250,6 +338,19 @@ class ChanChanViewModel(
         _uiState.update { it.copy(merchantStockFilter = filter) }
     }
 
+    fun openRestockDialog(product: ProductItem) {
+        _uiState.update { it.copy(isRestockDialogVisible = true, productToRestock = product) }
+    }
+
+    fun closeRestockDialog() {
+        _uiState.update { it.copy(isRestockDialogVisible = false, productToRestock = null) }
+    }
+
+    fun restockProduct(productId: String, addedQty: Int) {
+        repository.restockProduct(productId, addedQty)
+        closeRestockDialog()
+    }
+
     // --- Seller Order Management ---
     fun advanceOrderStatus(orderId: String, currentStatus: OrderStatus) {
         val nextStatus = when (currentStatus) {
@@ -266,12 +367,29 @@ class ChanChanViewModel(
         repository.updateOrderStatus(orderId, OrderStatus.CANCELLED)
     }
 
-    // --- Reporting ---
+    // --- Reporting & Customer Directory (Owner) ---
     fun setReportingPeriod(period: String) {
         _uiState.update { it.copy(reportingPeriod = period) }
     }
 
     fun getReportingStats(): ReportingSummary {
         return repository.getReportingStats(_uiState.value.reportingPeriod)
+    }
+
+    fun setCustomerSearchQuery(query: String) {
+        _uiState.update { it.copy(customerSearchQuery = query) }
+    }
+
+    fun addVoucher(voucher: Voucher) {
+        repository.addVoucher(voucher)
+        _uiState.update { it.copy(isAddVoucherDialogVisible = false) }
+    }
+
+    fun deleteVoucher(voucherId: String) {
+        repository.deleteVoucher(voucherId)
+    }
+
+    fun showAddVoucherDialog(show: Boolean) {
+        _uiState.update { it.copy(isAddVoucherDialogVisible = show) }
     }
 }
