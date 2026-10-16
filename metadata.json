@@ -1,0 +1,6 @@
+{
+  "name": "ChanChan+",
+  "description": "ChanChan+ Food & Beverage e-commerce app inspired by JIWA+ with personalization, product and catalog management, seamless payments, live order tracking, and seller reporting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
